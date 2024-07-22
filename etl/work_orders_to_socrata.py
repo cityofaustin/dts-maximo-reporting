@@ -130,7 +130,13 @@ def main(args):
         logger.info(f"{len(rows)} work orders found")
 
         # Upsert to Socrata
-        soda = Socrata(SO_WEB, SO_TOKEN, username=SO_KEY, password=SO_SECRET, timeout=500, )
+        soda = Socrata(
+            SO_WEB,
+            SO_TOKEN,
+            username=SO_KEY,
+            password=SO_SECRET,
+            timeout=500,
+        )
         res = data_to_socrata(soda, rows)
         logger.info(res)
     else:
