@@ -7,7 +7,7 @@ import dateutil.parser
 import oracledb as cx_Oracle
 from sodapy import Socrata
 
-from queries import query_template
+from queries import query_template, service_requests
 import utils
 
 # Maximo data warehouse DB Credentials
@@ -22,7 +22,8 @@ SO_WEB = os.getenv("SO_WEB")
 SO_TOKEN = os.getenv("SO_TOKEN")
 SO_KEY = os.getenv("SO_KEY")
 SO_SECRET = os.getenv("SO_SECRET")
-DATASET = "hjym-dxqr"
+WORK_ORDER_DATASET = "hjym-dxqr"
+SERVICE_REQUESTS_DATASET = "2zms-x3x7"
 
 SOCRATA_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
@@ -94,7 +95,7 @@ def transform_datetime_columns(data):
     return data
 
 
-def data_to_socrata(soda, data):
+def data_to_socrata(soda, data, dataset):
     """
     Replaces all the data in the socrata dataset with data in the dataframe.
 
@@ -104,43 +105,49 @@ def data_to_socrata(soda, data):
     data : List of dicts from Oracle DB
 
     """
-    res = soda.upsert(DATASET, data)
+    res = soda.upsert(dataset, data)
     return res
 
 
 def main(args):
     # process CLI args
     start, end = process_date_arguments(args)
-    logger.info(f"Getting work orders with start: {start}, end: {end}")
-    query_formatted = query_template.format(start=start, end=end)
+    logger.info(f"Getting data with start: {start}, end: {end}")
+    work_orders = query_template.format(start=start, end=end)
+    csrs = service_requests.format(start=start, end=end)
 
     # Connect to Maximo data warehouse
     conn = get_conn()
     cursor = conn.cursor()
 
-    # Execute query
-    cursor.execute(query_formatted)
-    cursor.rowfactory = row_factory(cursor)
-    rows = cursor.fetchall()
+    queries = [
+        {"query": work_orders, "dataset": WORK_ORDER_DATASET},
+        {"query": csrs, "dataset": SERVICE_REQUESTS_DATASET},
+    ]
+    for query in queries:
+        # Execute query
+        cursor.execute(query["query"])
+        cursor.rowfactory = row_factory(cursor)
+        rows = cursor.fetchall()
+
+        # Convert datetime fields to format accepted by Socrata
+        rows = transform_datetime_columns(rows)
+        if rows:
+            logger.info(f"{len(rows)} records found")
+
+            # Upsert to Socrata
+            soda = Socrata(
+                SO_WEB,
+                SO_TOKEN,
+                username=SO_KEY,
+                password=SO_SECRET,
+                timeout=500,
+            )
+            res = data_to_socrata(soda, rows, query["dataset"])
+            logger.info(res)
+        else:
+            logger.info("No records found")
     conn.close()
-
-    # Convert datetime fields to format accepted by Socrata
-    rows = transform_datetime_columns(rows)
-    if rows:
-        logger.info(f"{len(rows)} work orders found")
-
-        # Upsert to Socrata
-        soda = Socrata(
-            SO_WEB,
-            SO_TOKEN,
-            username=SO_KEY,
-            password=SO_SECRET,
-            timeout=500,
-        )
-        res = data_to_socrata(soda, rows)
-        logger.info(res)
-    else:
-        logger.info("No work orders found")
 
 
 # CLI argument definition
