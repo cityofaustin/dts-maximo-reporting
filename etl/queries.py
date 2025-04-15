@@ -1,6 +1,5 @@
 query_template = """
 SELECT w.WONUM,
-       w.DIM_WORKORDER_ID,
        w.DIM_ASSET_SK,
        w.DIM_WORK_LOC_SK,
        w.PARENT,
@@ -35,10 +34,8 @@ SELECT w.WONUM,
        w.OUTMATCOST,
        w.OUTTOOLCOST,
        w.WOPRIORITY,
-       w.PROBLEMCODE,
-       w.CALCPRIORITY,
-       w.CHARGESTORE,
-       w.FAILURECODE,
+       lkp.DESCRIPTION AS PROBLEMCODE,
+       lkf.DESCRIPTION AS FAILURECODE,
        w.HASFOLLOWUPWORK,
        w.SENDERSYSID,
        w.ORGID,
@@ -51,18 +48,39 @@ SELECT w.WONUM,
        w.WORKORDERID,
        w.PERSONGROUP,
        w.CREWID,
-       w.WOGROUP,
        w.ACTINTLABCOST,
        w.ACTINTLABHRS,
        w.ASSIGNEDOWNERGROUP,
-       w.ROWSTAMP,
        w.CSR311NUMBER,
        w.ROW_PERMIT,
        w.ROW_EXPDATE,
-       l.NUMVALUE AS CTM_SEGMENT_ID
+       l.NUMVALUE      AS CTM_SEGMENT_ID,
+       w.DIM_OWNER_PERSON_SK, 
+       w.SUPERINTENDENT,
+       w.REPORTEDBY,
+       w.DIM_LEAD_PERSON_SK,
+       w.HOLDREASON,
+       cc.DESCRIPTION  AS CAUSE,
+       rc.DESCRIPTION  AS REMEDY,
+       '{base_url}' || w.WONUM as WO_LINK
 FROM MAXIMO_DM.FCT_WORKORDER w
-         LEFT OUTER JOIN (SELECT * from MAXIMO_DM.DIM_LOCATIONSPEC where ASSETATTRID = 'GIS_SEGMENT_ID') l
-                         ON w.LOCATION = l.LOCATION
+         LEFT OUTER JOIN (SELECT *
+                          FROM MAXIMO_DM.DIM_LOCATIONSPEC
+                          WHERE ASSETATTRID = 'GIS_SEGMENT_ID') l ON w.LOCATION = l.LOCATION
+         LEFT JOIN (SELECT fr.WONUM,
+                           fr.FAILURECODE,
+                           lkp.DESCRIPTION
+                    FROM MAXIMO_DM.LKP_FAILUREREPORT fr
+                             LEFT JOIN MAXIMO_DM.LKP_FAILURECODE lkp ON lkp.FAILURECODE = fr.FAILURECODE
+                    WHERE TYPE = 'CAUSE') cc ON cc.WONUM = w.WONUM
+         LEFT JOIN (SELECT fr.WONUM,
+                           fr.FAILURECODE,
+                           lkp.DESCRIPTION
+                    FROM MAXIMO_DM.LKP_FAILUREREPORT fr
+                             LEFT JOIN MAXIMO_DM.LKP_FAILURECODE lkp ON lkp.FAILURECODE = fr.FAILURECODE
+                    WHERE TYPE = 'REMEDY') rc ON rc.WONUM = w.WONUM
+         LEFT JOIN MAXIMO_DM.LKP_FAILURECODE lkp ON lkp.FAILURECODE = w.PROBLEMCODE
+         LEFT JOIN MAXIMO_DM.LKP_FAILURECODE lkf ON lkf.FAILURECODE = w.FAILURECODE
 WHERE w.SITEID = 'SBO'
   AND w.CHANGEDATE BETWEEN TO_DATE('{start}', 'MM/DD/YYYY')
     AND TO_DATE('{end}', 'MM/DD/YYYY')
@@ -81,3 +99,5 @@ WHERE CLASS = 'SR'
   AND CHANGEDATE BETWEEN TO_DATE('{start}', 'MM/DD/YYYY')
     AND TO_DATE('{end}', 'MM/DD/YYYY')
 """
+
+maximo_url_search_params = "event=loadapp&value=sbo_wotrk&additionalevent=useqbe&additionaleventvalue=wonum="
