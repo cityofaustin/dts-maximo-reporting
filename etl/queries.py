@@ -67,3 +67,17 @@ WHERE w.SITEID = 'SBO'
   AND w.CHANGEDATE BETWEEN TO_DATE('{start}', 'MM/DD/YYYY')
     AND TO_DATE('{end}', 'MM/DD/YYYY')
 	"""
+
+service_requests = """
+SELECT DIM_TICKET_ID,
+       TICKETID,
+       STATUS,
+       STATUSDATE,
+       REPORTDATE,
+       ACTUALFINISH
+from MAXIMO_DM.FCT_TICKET
+WHERE CLASS = 'SR'
+  AND SITEID = 'SBO'
+  AND CHANGEDATE BETWEEN TO_DATE('{start}', 'MM/DD/YYYY')
+    AND TO_DATE('{end}', 'MM/DD/YYYY')
+"""
