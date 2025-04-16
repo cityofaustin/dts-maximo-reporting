@@ -7,7 +7,7 @@ import dateutil.parser
 import oracledb as cx_Oracle
 from sodapy import Socrata
 
-from queries import query_template, service_requests
+from queries import query_template, service_requests, maximo_url_search_params
 import utils
 
 # Maximo data warehouse DB Credentials
@@ -16,6 +16,7 @@ PORT = os.getenv("MAXIMO_PORT")
 SERVICE_NAME = os.getenv("MAXIMO_SERVICE_NAME")
 USER = os.getenv("MAXIMO_DB_USER")
 PASSWORD = os.getenv("MAXIMO_DB_PASS")
+BASE_URL = os.getenv("MAXIMO_BASE_URL")
 
 # Socrata Secrets
 SO_WEB = os.getenv("SO_WEB")
@@ -95,6 +96,25 @@ def transform_datetime_columns(data):
     return data
 
 
+def cleanup_work_order_urls(data):
+    """
+    Replaces spaces with the proper URL encoding from work order URLs.
+    Socrata will silently reject URLs with spaces.
+    ----------
+    data: list of dicts of the data fetched from Maximo.
+
+    Returns
+    -------
+    data: list of dicts with the urls cleaned up.
+
+    """
+    for row in data:
+        # Only a few work orders have spaces in them.
+        if " " in row["WONUM"]:
+            row["WO_LINK"] = row["WO_LINK"].replace(" ", "%20")
+
+    return data
+
 def data_to_socrata(soda, data, dataset):
     """
     Replaces all the data in the socrata dataset with data in the dataframe.
@@ -113,7 +133,12 @@ def main(args):
     # process CLI args
     start, end = process_date_arguments(args)
     logger.info(f"Getting data with start: {start}, end: {end}")
-    work_orders = query_template.format(start=start, end=end)
+
+    # Building the direct url for work orders
+    work_order_base_url = BASE_URL + maximo_url_search_params
+
+    # Building queries
+    work_orders = query_template.format(base_url=work_order_base_url, start=start, end=end)
     csrs = service_requests.format(start=start, end=end)
 
     # Connect to Maximo data warehouse
@@ -130,10 +155,14 @@ def main(args):
         cursor.rowfactory = row_factory(cursor)
         rows = cursor.fetchall()
 
-        # Convert datetime fields to format accepted by Socrata
-        rows = transform_datetime_columns(rows)
         if rows:
             logger.info(f"{len(rows)} records found")
+            # Convert datetime fields to format accepted by Socrata
+            rows = transform_datetime_columns(rows)
+
+            # Cleaning up URL encoding (only for work orders)
+            if "WO_LINK" in rows[0]:
+                rows = cleanup_work_order_urls(rows)
 
             # Upsert to Socrata
             soda = Socrata(
