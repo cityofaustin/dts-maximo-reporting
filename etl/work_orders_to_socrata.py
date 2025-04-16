@@ -155,12 +155,14 @@ def main(args):
         cursor.rowfactory = row_factory(cursor)
         rows = cursor.fetchall()
 
-        # Convert datetime fields to format accepted by Socrata
-        rows = transform_datetime_columns(rows)
-        # Cleaning up URL encoding
-        rows = cleanup_work_order_urls(rows)
         if rows:
             logger.info(f"{len(rows)} records found")
+            # Convert datetime fields to format accepted by Socrata
+            rows = transform_datetime_columns(rows)
+
+            # Cleaning up URL encoding (only for work orders)
+            if "WO_LINK" in rows[0]:
+                rows = cleanup_work_order_urls(rows)
 
             # Upsert to Socrata
             soda = Socrata(
