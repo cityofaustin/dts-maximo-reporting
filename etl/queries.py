@@ -62,6 +62,7 @@ SELECT w.WONUM,
        w.HOLDREASON,
        cc.DESCRIPTION  AS CAUSE,
        rc.DESCRIPTION  AS REMEDY,
+       w.ALTREF,
        '{base_url}' || w.WONUM as WO_LINK
 FROM MAXIMO_DM.FCT_WORKORDER w
          LEFT OUTER JOIN (SELECT *
