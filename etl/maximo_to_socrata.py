@@ -113,6 +113,7 @@ def cleanup_work_order_urls(data):
 
     return data
 
+
 def data_to_socrata(soda, data, dataset):
     """
     Replaces all the data in the socrata dataset with data in the dataframe.
@@ -143,7 +144,9 @@ def main(args):
     if "base_url" in query_params:
         # Building the direct url for work orders
         work_order_base_url = BASE_URL + maximo_url_search_params
-        query = query_template.format(base_url=work_order_base_url, start=start, end=end)
+        query = query_template.format(
+            base_url=work_order_base_url, start=start, end=end
+        )
     else:
         query = query_template.format(start=start, end=end)
 
