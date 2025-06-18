@@ -7,7 +7,7 @@ import dateutil.parser
 import oracledb as cx_Oracle
 from sodapy import Socrata
 
-from queries import query_template, service_requests, maximo_url_search_params
+from queries import QUERIES, maximo_url_search_params
 import utils
 
 # Maximo data warehouse DB Credentials
@@ -23,8 +23,6 @@ SO_WEB = os.getenv("SO_WEB")
 SO_TOKEN = os.getenv("SO_TOKEN")
 SO_KEY = os.getenv("SO_KEY")
 SO_SECRET = os.getenv("SO_SECRET")
-WORK_ORDER_DATASET = "hjym-dxqr"
-SERVICE_REQUESTS_DATASET = "2zms-x3x7"
 
 SOCRATA_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
@@ -134,48 +132,47 @@ def main(args):
     start, end = process_date_arguments(args)
     logger.info(f"Getting data with start: {start}, end: {end}")
 
-    # Building the direct url for work orders
-    work_order_base_url = BASE_URL + maximo_url_search_params
-
-    # Building queries
-    work_orders = query_template.format(base_url=work_order_base_url, start=start, end=end)
-    csrs = service_requests.format(start=start, end=end)
-
     # Connect to Maximo data warehouse
     conn = get_conn()
     cursor = conn.cursor()
 
-    queries = [
-        {"query": work_orders, "dataset": WORK_ORDER_DATASET},
-        {"query": csrs, "dataset": SERVICE_REQUESTS_DATASET},
-    ]
-    for query in queries:
-        # Execute query
-        cursor.execute(query["query"])
-        cursor.rowfactory = row_factory(cursor)
-        rows = cursor.fetchall()
+    query_template = QUERIES[args.query]["template"]
+    query_params = QUERIES[args.query]["query_params"]
+    socrata_resource_id = QUERIES[args.query]["dataset_resource_id"]
 
-        if rows:
-            logger.info(f"{len(rows)} records found")
-            # Convert datetime fields to format accepted by Socrata
-            rows = transform_datetime_columns(rows)
+    if "base_url" in query_params:
+        # Building the direct url for work orders
+        work_order_base_url = BASE_URL + maximo_url_search_params
+        query = query_template.format(base_url=work_order_base_url, start=start, end=end)
+    else:
+        query = query_template.format(start=start, end=end)
 
-            # Cleaning up URL encoding (only for work orders)
-            if "WO_LINK" in rows[0]:
-                rows = cleanup_work_order_urls(rows)
+    # Execute query
+    cursor.execute(query)
+    cursor.rowfactory = row_factory(cursor)
+    rows = cursor.fetchall()
 
-            # Upsert to Socrata
-            soda = Socrata(
-                SO_WEB,
-                SO_TOKEN,
-                username=SO_KEY,
-                password=SO_SECRET,
-                timeout=500,
-            )
-            res = data_to_socrata(soda, rows, query["dataset"])
-            logger.info(res)
-        else:
-            logger.info("No records found")
+    if rows:
+        logger.info(f"{len(rows)} records found")
+        # Convert datetime fields to format accepted by Socrata
+        rows = transform_datetime_columns(rows)
+
+        # Cleaning up URL encoding (only for work orders)
+        if args.query == "work_orders":
+            rows = cleanup_work_order_urls(rows)
+
+        # Upsert to Socrata
+        soda = Socrata(
+            SO_WEB,
+            SO_TOKEN,
+            username=SO_KEY,
+            password=SO_SECRET,
+            timeout=500,
+        )
+        res = data_to_socrata(soda, rows, socrata_resource_id)
+        logger.info(res)
+    else:
+        logger.info("No records found")
     conn.close()
 
 
@@ -194,6 +191,13 @@ parser.add_argument(
     type=str,
     required=False,
     help="End changed date of the work orders to download, defaults to now.",
+)
+
+parser.add_argument(
+    "--query",
+    choices=list(QUERIES.keys()),
+    required=True,
+    help="Name of the query defined in queries.py. Ex: work_orders",
 )
 
 args = parser.parse_args()
