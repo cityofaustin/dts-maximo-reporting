@@ -1,4 +1,4 @@
-query_template = """
+work_orders = """
 SELECT w.WONUM,
        w.DIM_ASSET_SK,
        w.DIM_WORK_LOC_SK,
@@ -101,4 +101,39 @@ WHERE CLASS = 'SR'
     AND TO_DATE('{end}', 'MM/DD/YYYY')
 """
 
-maximo_url_search_params = "event=loadapp&value=sbo_wotrk&additionalevent=useqbe&additionaleventvalue=wonum="
+work_order_status_history = """
+SELECT
+    WOSTATUSID,
+    WONUM,
+    STATUS,
+    CHANGEDATE,
+    CHANGEBY
+FROM MAXIMO_DM.LKP_WOSTATUS
+WHERE
+    SITEID='SBO' AND
+    CHANGEDATE BETWEEN TO_DATE('{start}', 'MM/DD/YYYY')
+    AND TO_DATE('{end}', 'MM/DD/YYYY')
+"""
+
+maximo_url_search_params = (
+    "event=loadapp&value=sbo_wotrk&additionalevent=useqbe&additionaleventvalue=wonum="
+)
+
+
+QUERIES = {
+    "work_orders": {
+        "template": work_orders,
+        "query_params": ["start", "end", "base_url"],
+        "dataset_resource_id": "hjym-dxqr",
+    },
+    "service_requests": {
+        "template": service_requests,
+        "query_params": ["start", "end"],
+        "dataset_resource_id": "2zms-x3x7",
+    },
+    "work_order_status_history": {
+        "template": work_order_status_history,
+        "query_params": ["start", "end"],
+        "dataset_resource_id": "dbbh-gygn",
+    },
+}
