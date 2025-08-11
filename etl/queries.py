@@ -115,10 +115,64 @@ WHERE
     AND TO_DATE('{end}', 'MM/DD/YYYY')
 """
 
+work_order_time_logs = """
+SELECT
+    LABTRANSID,
+    REFWO as WONUM,
+    CRAFT,
+    TO_CHAR(TRUNC(STARTDATE) + (STARTTIME - TRUNC(STARTTIME)), 'YYYY-MM-DD"T"HH24:MI:SS') AS STARTDATETIME,
+    TO_CHAR(TRUNC(FINISHDATE) + (FINISHTIME - TRUNC(FINISHTIME)), 'YYYY-MM-DD"T"HH24:MI:SS') AS FINISHDATETIME,
+    REGULARHRS,
+    ENTERDATE
+FROM MAXIMO_DM.LKP_LABTRANS
+WHERE
+    SITEID='SBO' AND
+    ENTERDATE BETWEEN TO_DATE('{start}', 'MM/DD/YYYY')
+    AND TO_DATE('{end}', 'MM/DD/YYYY')
+"""
+
+work_order_materials = """
+SELECT
+    MATUSETRANSID,
+    REFWO as WONUM,
+    ITEMNUM,
+    DESCRIPTION,
+    ISSUETYPE,
+    STORELOC,
+    QUANTITY,
+    SHIPTO as UNIT,
+    LINECOST,
+    ACTUALDATE
+FROM MAXIMO_DM.DIM_MATUSETRANS
+WHERE SITEID = 'SBO' AND
+    TRANSDATE BETWEEN TO_DATE('{start}', 'MM/DD/YYYY')
+    AND TO_DATE('{end}', 'MM/DD/YYYY')
+"""
+
+work_order_specifications = """
+SELECT 
+    spec.WORKORDERSPECID,
+    spec.WONUM,
+    spec.ASSETATTRID,
+    lkp.DESCRIPTION,
+    lkp.DATATYPE,
+    lkp.DOMAINID,
+    spec.ALNVALUE,
+    spec.NUMVALUE,
+    spec.MEASUREUNITID,
+    spec.CHANGEDATE
+FROM MAXIMO_DM.DIM_WORKORDERSPEC spec
+         LEFT JOIN (SELECT * FROM MAXIMO_DM.DIM_ASSETATTRIBUTE WHERE SITEID = 'SBO') lkp
+                   ON lkp.ASSETATTRID = spec.ASSETATTRID
+WHERE spec.SITEID = 'SBO'
+  AND (spec.NUMVALUE IS NOT NULL OR spec.ALNVALUE IS NOT NULL) AND
+    CHANGEDATE BETWEEN TO_DATE('{start}', 'MM/DD/YYYY')
+    AND TO_DATE('{end}', 'MM/DD/YYYY')
+"""
+
 maximo_url_search_params = (
     "event=loadapp&value=sbo_wotrk&additionalevent=useqbe&additionaleventvalue=wonum="
 )
-
 
 QUERIES = {
     "work_orders": {
@@ -135,5 +189,20 @@ QUERIES = {
         "template": work_order_status_history,
         "query_params": ["start", "end"],
         "dataset_resource_id": "dbbh-gygn",
+    },
+    "work_order_time_logs": {
+        "template": work_order_time_logs,
+        "query_params": ["start", "end"],
+        "dataset_resource_id": "gsg2-nuh6",
+    },
+    "work_order_materials": {
+        "template": work_order_materials,
+        "query_params": ["start", "end"],
+        "dataset_resource_id": "gr65-gj74",
+    },
+    "work_order_specifications": {
+        "template": work_order_specifications,
+        "query_params": ["start", "end"],
+        "dataset_resource_id": "nvm3-3kju",
     },
 }
