@@ -171,6 +171,16 @@ WHERE spec.SITEID = 'SBO'
     AND TO_DATE('{end}', 'MM/DD/YYYY')
 """
 
+locations = """
+SELECT LOCATION,
+       CLASSSTRUCTUREID,
+       ALNVALUE AS ADDRESS_DESCRIPTION
+FROM MAXIMO_DM.DIM_LOCATIONSPEC
+WHERE ASSETATTRID = 'ADDRESS_DESCRIPTION'
+  AND SITEID = 'SBO'
+  AND CHANGEDATE BETWEEN TO_DATE('{start}', 'MM/DD/YYYY') AND TO_DATE('{end}', 'MM/DD/YYYY')
+"""
+
 maximo_url_search_params = (
     "event=loadapp&value=sbo_wotrk&additionalevent=useqbe&additionaleventvalue=wonum="
 )
@@ -205,5 +215,10 @@ QUERIES = {
         "template": work_order_specifications,
         "query_params": ["start", "end"],
         "dataset_resource_id": "nvm3-3kju",
+    },
+    "locations": {
+        "template": locations,
+        "query_params": ["start", "end"],
+        "dataset_resource_id": "69pc-wtji",
     },
 }
