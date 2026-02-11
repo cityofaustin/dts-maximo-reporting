@@ -12,11 +12,11 @@ The three parameters this script takes is `--start`, `--end`, and `--query`, the
 
 Publishing work orders to the city datahub between August 31st, 2023 and September 9th, 2023:
 
-`$ python etl/maximo_to_socrata.py --query work_orders --start 2023-08-31 --end 2023-09-09`
+`python etl/maximo_to_socrata.py --query work_orders --start 2023-08-31 --end 2023-09-09`
 
 Leaving out `--start` will default to 7 days ago. Leaving out `--end` will default to today. Publishing the work orders for the past week:
 
-`$ python etl/maximo_to_socrata.py --query work_orders`
+`python etl/maximo_to_socrata.py --query work_orders`
 
 The `--query` determines which query `etl/queries.py` (defined as QUERIES) is run. All queries configured there must take `--start` and `--end` arguments.  
 
@@ -28,14 +28,14 @@ Note that you also must be on the City network to be able to access the Maximo d
 
 This repo can be used with a docker container. You can either build it yourself with:
 
-`$ docker build . -t dts-maximo-reporting:production`
+`docker build . -t dts-maximo-reporting:production`
 
 or pull from our dockerhub account:
 
-`$ docker pull atddocker/dts-maximo-reporting:production`
+`docker pull atddocker/dts-maximo-reporting:production`
 
 Then, provide the environment variables described in env_template to the docker image:
 
-`$ docker run -it --env-file env_file dts-maximo-reporting:production /bin/bash` 
+`docker run -it --env-file env_file dts-maximo-reporting:production /bin/bash` 
 
 Then, provide the command you would like to run.
