@@ -1,10 +1,10 @@
-# Socrata aka City datahub
+# Socrata aka City datahub (1pass: Socrata Key ID, Secret, and Token)
 SO_KEY=
 SO_SECRET=
 SO_TOKEN=
 SO_WEB=
 
-# Maximo Data Warehouse DB
+# Maximo Data Warehouse DB (1pass: Maximo Data Warehouse)
 MAXIMO_DB_PASS=
 MAXIMO_DB_USER=
 MAXIMO_HOST=
