@@ -188,6 +188,17 @@ WHERE ASSETATTRID = 'ADDRESS_DESCRIPTION'
   AND CHANGEDATE BETWEEN TO_DATE('{start}', 'MM/DD/YYYY') AND TO_DATE('{end}', 'MM/DD/YYYY')
 """
 
+users = """
+SELECT DIM_PERSON_SK,
+       PERSONID,
+       STATUS,
+       DISPLAYNAME,
+       DEPARTMENT,
+       TITLE
+FROM MAXIMO_DM.DIM_PERSON
+WHERE LOCATIONSITE = 'SBO'
+"""
+
 maximo_url_search_params = (
     "event=loadapp&value=sbo_wotrk&additionalevent=useqbe&additionaleventvalue=wonum="
 )
@@ -227,5 +238,10 @@ QUERIES = {
         "template": locations,
         "query_params": ["start", "end"],
         "dataset_resource_id": "69pc-wtji",
+    },
+    "users": {
+        "template": users,
+        "query_params": None,
+        "dataset_resource_id": "jabf-gwbq",
     },
 }

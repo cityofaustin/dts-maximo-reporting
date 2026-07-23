@@ -131,7 +131,6 @@ def data_to_socrata(soda, data, dataset):
 def main(args):
     # process CLI args
     start, end = process_date_arguments(args)
-    logger.info(f"Getting data with start: {start}, end: {end}")
 
     # Connect to Maximo data warehouse
     conn = get_conn()
@@ -141,14 +140,20 @@ def main(args):
     query_params = QUERIES[args.query]["query_params"]
     socrata_resource_id = QUERIES[args.query]["dataset_resource_id"]
 
-    if "base_url" in query_params:
+    if query_params is None:
+        query = query_template
+    elif "base_url" in query_params:
         # Building the direct url for work orders
         work_order_base_url = BASE_URL + maximo_url_search_params
         query = query_template.format(
             base_url=work_order_base_url, start=start, end=end
         )
-    else:
+        logger.info(f"Getting data with start: {start}, end: {end}")
+    elif "start" in query_params and "end" in query_params:
         query = query_template.format(start=start, end=end)
+        logger.info(f"Getting data with start: {start}, end: {end}")
+    else:
+        raise ValueError("Invalid query parameters")
 
     # Execute query
     cursor.execute(query)
