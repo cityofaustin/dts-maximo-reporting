@@ -12,13 +12,25 @@ The three parameters this script takes is `--start`, `--end`, and `--query`, the
 
 Publishing work orders to the city datahub between August 31st, 2023 and September 9th, 2023:
 
-`python etl/maximo_to_socrata.py --query work_orders --start 2023-08-31 --end 2023-09-09`
-
+```bash
+python etl/maximo_to_socrata.py --query work_orders --start 2023-08-31 --end 2023-09-09
+```
 Leaving out `--start` will default to 7 days ago. Leaving out `--end` will default to today. Publishing the work orders for the past week:
 
-`python etl/maximo_to_socrata.py --query work_orders`
+```bash
+python etl/maximo_to_socrata.py --query work_orders
+```
 
 The `--query` determines which query `etl/queries.py` (defined as QUERIES) is run. All queries configured there must take `--start` and `--end` arguments.  
+
+### Logging
+
+You can also provide a `-p` or `--progress` flag to the script to see a `tqdm` progress bar. This can be useful for debugging or backfilling a ton of historical data locally.
+
+Example:
+```bash
+python etl/maximo_to_socrata.py --query work_order_time_logs --start 2026-07-01 -p
+```
 
 # Network
 

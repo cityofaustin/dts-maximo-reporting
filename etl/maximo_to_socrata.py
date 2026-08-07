@@ -6,6 +6,7 @@ import logging
 import dateutil.parser
 import oracledb as cx_Oracle
 from sodapy import Socrata
+from tqdm import tqdm
 
 from queries import QUERIES, maximo_url_search_params
 import utils
@@ -114,18 +115,48 @@ def cleanup_work_order_urls(data):
     return data
 
 
-def data_to_socrata(soda, data, dataset):
+def data_to_socrata(soda, data, dataset, batch_size=1000, show_progress=False):
     """
-    Replaces all the data in the socrata dataset with data in the dataframe.
+    Replaces all the data in the socrata dataset with data in the dataframe,
+    uploading in batches to avoid oversized payloads/timeouts.
 
     Parameters
     ----------
-    soda: sodapy client object
-    data : List of dicts from Oracle DB
+    soda : sodapy client object
+    data : list of dicts from Oracle DB
+    dataset : str, Socrata dataset (four-by-four) ID
+    batch_size : int, number of rows per batch (default 1000)
+    show_progress : bool, whether to display a tqdm progress bar (default False).
+        When False, batch progress is logged instead via the `logging` module.
 
+    Returns
+    -------
+    list of response dicts, one per batch
     """
-    res = soda.upsert(dataset, data)
-    return res
+    results = []
+    total_batches = (len(data) + batch_size - 1) // batch_size
+
+    logger.info(
+        f"Uploading {len(data)} rows to Socrata dataset {dataset} in {total_batches} batch(es) of {batch_size}"
+    )
+
+    iterator = range(0, len(data), batch_size)
+    if show_progress:
+        iterator = tqdm(iterator, total=total_batches, desc="Uploading to Socrata")
+
+    for batch_num, i in enumerate(iterator, start=1):
+        batch = data[i : i + batch_size]
+        res = soda.upsert(dataset, batch)
+        results.append(res)
+
+        if not show_progress:
+            logger.info(
+                f"Batch {batch_num}/{total_batches} uploaded ({len(batch)} rows)"
+            )
+
+    logger.info(f"Finished uploading {len(data)} rows to Socrata dataset {dataset}")
+
+    return results
 
 
 def main(args):
@@ -175,10 +206,11 @@ def main(args):
             SO_TOKEN,
             username=SO_KEY,
             password=SO_SECRET,
-            timeout=500,
+            timeout=30,
         )
-        res = data_to_socrata(soda, rows, socrata_resource_id)
-        logger.info(res)
+        res = data_to_socrata(
+            soda, rows, socrata_resource_id, show_progress=args.progress
+        )
     else:
         logger.info("No records found")
     conn.close()
@@ -206,6 +238,13 @@ parser.add_argument(
     choices=list(QUERIES.keys()),
     required=True,
     help="Name of the query defined in queries.py. Ex: work_orders",
+)
+
+parser.add_argument(
+    "-p",
+    "--progress",
+    action="store_true",
+    help="Show a progress bar while uploading to Socrata",
 )
 
 args = parser.parse_args()
