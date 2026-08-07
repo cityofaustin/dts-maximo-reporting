@@ -1,3 +1,4 @@
 sodapy==2.1.*
 oracledb==2.1.*
 python-dateutil==2.8.*
+tqdm==4.*
