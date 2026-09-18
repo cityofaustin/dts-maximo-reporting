@@ -4,19 +4,26 @@ import os
 import logging
 
 import dateutil.parser
-import oracledb as cx_Oracle
+import snowflake.connector
+from snowflake.connector import DictCursor
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
 from sodapy import Socrata
 from tqdm import tqdm
 
 from queries import QUERIES, maximo_url_search_params
 import utils
 
-# Maximo data warehouse DB Credentials
-HOST = os.getenv("MAXIMO_HOST")
-PORT = os.getenv("MAXIMO_PORT")
-SERVICE_NAME = os.getenv("MAXIMO_SERVICE_NAME")
-USER = os.getenv("MAXIMO_DB_USER")
-PASSWORD = os.getenv("MAXIMO_DB_PASS")
+# Snowflake DB Credentials (replaces Maximo Oracle DB credentials)
+SF_ACCOUNT = os.getenv("SNOWFLAKE_ACCOUNT")
+SF_USER = os.getenv("SNOWFLAKE_USER")
+SF_PRIVATE_KEY_PATH = os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH")
+SF_PRIVATE_KEY_PASSPHRASE = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE")
+SF_WAREHOUSE = os.getenv("SNOWFLAKE_WAREHOUSE")
+SF_DATABASE = os.getenv("SNOWFLAKE_DATABASE")
+SF_SCHEMA = os.getenv("SNOWFLAKE_SCHEMA")
+SF_ROLE = os.getenv("SNOWFLAKE_ROLE")
+
 BASE_URL = os.getenv("MAXIMO_BASE_URL")
 
 # Socrata Secrets
@@ -44,34 +51,57 @@ def process_date_arguments(args):
     return datetime.strftime(start, "%m/%d/%Y"), datetime.strftime(end, "%m/%d/%Y")
 
 
-def get_conn():
+def load_private_key(path, passphrase=None):
     """
-    Get connected to the Maximo data warehouse database
-
-    Returns
-    -------
-    cx_Oracle Connection Object
-
-    """
-    dsn_tns = cx_Oracle.makedsn(HOST, PORT, service_name=SERVICE_NAME)
-    return cx_Oracle.connect(user=USER, password=PASSWORD, dsn=dsn_tns)
-
-
-def row_factory(cursor):
-    """
-    Define cursor row handler which returns each row as a dict
-    h/t https://stackoverflow.com/questions/35045879/cx-oracle-how-can-i-receive-each-row-as-a-dictionary
+    Load an RSA private key from disk and return it in the DER/PKCS8
+    format the Snowflake connector expects.
 
     Parameters
     ----------
-    cursor : cx_Oracle Cursor object
+    path : str, path to the .p8 / .pem private key file
+    passphrase : str or None, passphrase the key was encrypted with
 
     Returns
     -------
-    function: the rowfactory.
+    bytes: DER-encoded, unencrypted private key
+    """
+    with open(path, "rb") as key_file:
+        p_key = serialization.load_pem_private_key(
+            key_file.read(),
+            password=passphrase.encode() if passphrase else None,
+            backend=default_backend(),
+        )
+    return p_key.private_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+
+
+def get_conn():
+    """
+    Get connected to the Snowflake data warehouse using key-pair auth.
+
+    Returns
+    -------
+    snowflake.connector Connection Object
 
     """
-    return lambda *args: dict(zip([d[0] for d in cursor.description], args))
+    try:
+        pkb = load_private_key(SF_PRIVATE_KEY_PATH, SF_PRIVATE_KEY_PASSPHRASE)
+        return snowflake.connector.connect(
+            account=SF_ACCOUNT,
+            user=SF_USER,
+            private_key=pkb,
+            warehouse=SF_WAREHOUSE,
+            database=SF_DATABASE,
+            schema=SF_SCHEMA,
+            role=SF_ROLE,
+        )
+    except Exception as e:
+        # Don't fail silently -- this runs unattended.
+        logger.error(f"Failed to connect to Snowflake: {e}")
+        raise
 
 
 def transform_datetime_columns(data):
@@ -79,7 +109,7 @@ def transform_datetime_columns(data):
     Transform datetime columns to the format expected by Socrata.
     Parameters
     ----------
-    data: list of dicts of the data fetched from Maximo.
+    data: list of dicts of the data fetched from Snowflake.
 
     Returns
     -------
@@ -100,7 +130,7 @@ def cleanup_work_order_urls(data):
     Replaces spaces with the proper URL encoding from work order URLs.
     Socrata will silently reject URLs with spaces.
     ----------
-    data: list of dicts of the data fetched from Maximo.
+    data: list of dicts of the data fetched from Snowflake.
 
     Returns
     -------
@@ -123,7 +153,7 @@ def data_to_socrata(soda, data, dataset, batch_size=1000, show_progress=False):
     Parameters
     ----------
     soda : sodapy client object
-    data : list of dicts from Oracle DB
+    data : list of dicts from Snowflake
     dataset : str, Socrata dataset (four-by-four) ID
     batch_size : int, number of rows per batch (default 1000)
     show_progress : bool, whether to display a tqdm progress bar (default False).
@@ -163,9 +193,9 @@ def main(args):
     # process CLI args
     start, end = process_date_arguments(args)
 
-    # Connect to Maximo data warehouse
+    # Connect to Snowflake
     conn = get_conn()
-    cursor = conn.cursor()
+    cursor = conn.cursor(DictCursor)
 
     query_template = QUERIES[args.query]["template"]
     query_params = QUERIES[args.query]["query_params"]
@@ -188,7 +218,6 @@ def main(args):
 
     # Execute query
     cursor.execute(query)
-    cursor.rowfactory = row_factory(cursor)
     rows = cursor.fetchall()
 
     if rows:
