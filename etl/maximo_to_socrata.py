@@ -17,7 +17,8 @@ import utils
 # Snowflake DB Credentials (replaces Maximo Oracle DB credentials)
 SF_ACCOUNT = os.getenv("SNOWFLAKE_ACCOUNT")
 SF_USER = os.getenv("SNOWFLAKE_USER")
-SF_PRIVATE_KEY_PATH = os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH")
+# Full PEM text of the private key (-----BEGIN ... -----END)
+SF_PRIVATE_KEY = os.getenv("SNOWFLAKE_PRIVATE_KEY")
 SF_PRIVATE_KEY_PASSPHRASE = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE")
 SF_WAREHOUSE = os.getenv("SNOWFLAKE_WAREHOUSE")
 SF_DATABASE = os.getenv("SNOWFLAKE_DATABASE")
@@ -51,26 +52,33 @@ def process_date_arguments(args):
     return datetime.strftime(start, "%m/%d/%Y"), datetime.strftime(end, "%m/%d/%Y")
 
 
-def load_private_key(path, passphrase=None):
+def load_private_key(key_content, passphrase=None):
     """
-    Load an RSA private key from disk and return it in the DER/PKCS8
-    format the Snowflake connector expects.
+    Load an RSA private key from PEM text (e.g. pulled from 1Password into
+    an env var) and return it in the DER/PKCS8 format the Snowflake
+    connector expects. The key is never written to disk.
 
     Parameters
     ----------
-    path : str, path to the .p8 / .pem private key file
+    key_content : str, full PEM text of the private key
     passphrase : str or None, passphrase the key was encrypted with
 
     Returns
     -------
     bytes: DER-encoded, unencrypted private key
     """
-    with open(path, "rb") as key_file:
-        p_key = serialization.load_pem_private_key(
-            key_file.read(),
-            password=passphrase.encode() if passphrase else None,
-            backend=default_backend(),
-        )
+    if not key_content:
+        raise ValueError("SNOWFLAKE_PRIVATE_KEY env var is not set or is empty")
+
+    # Some secret injectors flatten newlines into literal "\n" sequences.
+    # Restore real line breaks so the PEM parses.
+    key_content = key_content.replace("\\n", "\n")
+
+    p_key = serialization.load_pem_private_key(
+        key_content.encode(),
+        password=passphrase.encode() if passphrase else None,
+        backend=default_backend(),
+    )
     return p_key.private_bytes(
         encoding=serialization.Encoding.DER,
         format=serialization.PrivateFormat.PKCS8,
@@ -88,7 +96,7 @@ def get_conn():
 
     """
     try:
-        pkb = load_private_key(SF_PRIVATE_KEY_PATH, SF_PRIVATE_KEY_PASSPHRASE)
+        pkb = load_private_key(SF_PRIVATE_KEY, SF_PRIVATE_KEY_PASSPHRASE)
         return snowflake.connector.connect(
             account=SF_ACCOUNT,
             user=SF_USER,
