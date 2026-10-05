@@ -56,7 +56,7 @@ Because PEM keys span multiple lines, the key can be provided in either of two f
 
 This repo can be used with a docker container. You can either build it yourself with:
 
-`docker build . -t dts-maximo-reporting:production`
+`docker build . -t atddocker/dts-maximo-reporting:local`
 
 or pull from our dockerhub account:
 
@@ -64,7 +64,7 @@ or pull from our dockerhub account:
 
 Then, provide the environment variables described in env_template to the docker image:
 
-`docker run -it --env-file env_file dts-maximo-reporting:production /bin/bash` 
+`docker run -it --env-file env_file atddocker/dts-maximo-reporting:local /bin/bash` 
 
 Note that `--env-file` does not support multi-line values, so `SNOWFLAKE_PRIVATE_KEY` must be provided in the single-line form with literal `\n` sequences.
 
