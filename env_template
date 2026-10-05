@@ -4,10 +4,17 @@ SO_KEY=<apiKeyId>
 SO_SECRET=<apiKeySecret>
 SO_TOKEN=<appToken>
 
-# Maximo Data Warehouse DB (1pass: Maximo Data Warehouse)
-MAXIMO_DB_USER=<db username>
-MAXIMO_SERVICE_NAME=<service name>
-MAXIMO_PORT=<port>
-MAXIMO_HOST=<host>
-MAXIMO_DB_PASS=<db password>
+# Maximo Data Warehouse in Snowflake (key-pair auth)
+SNOWFLAKE_ACCOUNT=<account identifier>
+SNOWFLAKE_USER=<service account user name>
+# Full PEM text on a single line, with literal \n in place of line breaks
+# (docker --env-file does not support multi-line values)
+SNOWFLAKE_PRIVATE_KEY=<-----BEGIN ENCRYPTED PRIVATE KEY-----\n...\n-----END ENCRYPTED PRIVATE KEY----->
+SNOWFLAKE_PRIVATE_KEY_PASSPHRASE=<private key passphrase>
+SNOWFLAKE_WAREHOUSE=<warehouse>
+SNOWFLAKE_DATABASE=<database>
+SNOWFLAKE_SCHEMA=<schema>
+SNOWFLAKE_ROLE=<role>
+
+# Maximo work order links
 MAXIMO_BASE_URL=<base url>
