@@ -241,9 +241,7 @@ def main(args):
             password=SO_SECRET,
             timeout=30,
         )
-        data_to_socrata(
-            soda, rows, socrata_resource_id, show_progress=args.progress
-        )
+        data_to_socrata(soda, rows, socrata_resource_id, show_progress=args.progress)
     else:
         logger.info("No records found")
     conn.close()
