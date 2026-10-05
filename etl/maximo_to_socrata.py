@@ -171,7 +171,6 @@ def data_to_socrata(soda, data, dataset, batch_size=1000, show_progress=False):
     -------
     list of response dicts, one per batch
     """
-    results = []
     total_batches = (len(data) + batch_size - 1) // batch_size
 
     logger.info(
@@ -185,7 +184,6 @@ def data_to_socrata(soda, data, dataset, batch_size=1000, show_progress=False):
     for batch_num, i in enumerate(iterator, start=1):
         batch = data[i : i + batch_size]
         res = soda.upsert(dataset, batch)
-        results.append(res)
 
         if not show_progress:
             logger.info(
@@ -193,8 +191,6 @@ def data_to_socrata(soda, data, dataset, batch_size=1000, show_progress=False):
             )
 
     logger.info(f"Finished uploading {len(data)} rows to Socrata dataset {dataset}")
-
-    return results
 
 
 def main(args):
@@ -245,7 +241,7 @@ def main(args):
             password=SO_SECRET,
             timeout=30,
         )
-        res = data_to_socrata(
+        data_to_socrata(
             soda, rows, socrata_resource_id, show_progress=args.progress
         )
     else:

@@ -16,5 +16,5 @@ SNOWFLAKE_DATABASE=<database>
 SNOWFLAKE_SCHEMA=<schema>
 SNOWFLAKE_ROLE=<role>
 
-# Maximo work order links
+# For generating URLs to Maximo
 MAXIMO_BASE_URL=<base url>
