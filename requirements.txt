@@ -1,5 +1,5 @@
-sodapy==2.1.*
-python-dateutil==2.8.*
+sodapy==2.*
+python-dateutil==2.*
 tqdm==4.*
-snowflake-connector-python
-cryptography
+snowflake-connector-python==4.*
+cryptography==50.*
